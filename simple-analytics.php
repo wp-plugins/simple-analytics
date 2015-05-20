@@ -2,7 +2,7 @@
 /*
 Plugin Name: Simple Analytics
 Description: A simple plugin to include your Google Analtyics tracking.
-Version: 1.0.1
+Version: 1.0.2
 Author: Theme Blvd
 Author URI: http://themeblvd.com
 License: GPL2
@@ -25,7 +25,7 @@ License: GPL2
 
 */
 
-define( 'TB_SIMPLE_ANALYTICS_PLUGIN_VERSION', '1.0.1' );
+define( 'TB_SIMPLE_ANALYTICS_PLUGIN_VERSION', '1.0.2' );
 define( 'TB_SIMPLE_ANALYTICS_TWEEPLE_PLUGIN_DIR', dirname( __FILE__ ) );
 define( 'TB_SIMPLE_ANALYTICS_PLUGIN_URI', plugins_url( '' , __FILE__ ) );
 define( 'TB_SIMPLE_ANALYTICS_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -63,25 +63,35 @@ class Theme_Blvd_Simple_Analytics {
 
         // Output Analytics
         if ( ! is_admin() && ! current_user_can( 'edit_theme_options' ) ) {
-
-            $analytics = get_option( 'themeblvd_analytics' );
-
-            if ( $analytics && isset( $analytics['placement'] ) ) {
-
-                if ( $analytics['placement'] == 'foot' ) {
-                    add_action( 'wp_footer', array( $this, 'output' ), 1000 );
-                } else {
-                    add_action( 'wp_head', array( $this, 'output' ), 2 );
-                }
-
-            }
-
+            add_action( 'after_setup_theme', array( $this, 'add_output' ) );
         }
 
         // Settings page
         add_action( 'admin_menu', array( $this, 'admin_menu' ) );
         add_action( 'admin_init', array( $this, 'admin_init' ) );
 
+    }
+
+    /**
+     * Hook in output to cofigured action
+     *
+     * @since 1.0.2
+     */
+    public function add_output() {
+
+        $analytics = get_option( 'themeblvd_analytics' );
+
+        if ( $analytics && isset( $analytics['placement'] ) ) {
+
+            if ( defined('TB_FRAMEWORK_VERSION') && $analytics['placement'] == 'body' ) {
+                add_action( 'themeblvd_before', array( $this, 'output' ), 2 );
+            } else if ( $analytics['placement'] == 'foot' ) {
+                add_action( 'wp_footer', array( $this, 'output' ), 1000 );
+            } else {
+                add_action( 'wp_head', array( $this, 'output' ), 2 );
+            }
+
+        }
     }
 
     /**
@@ -97,13 +107,13 @@ class Theme_Blvd_Simple_Analytics {
 ?>
 <!-- Simple Analytics by Theme Blvd -->
 <script>
-  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
 
-  ga('create', '<?php echo esc_attr( $analytics['google_id'] ); ?>', 'auto');
-  ga('send', 'pageview');
+    ga('create', '<?php echo esc_attr( $analytics['google_id'] ); ?>', 'auto');
+    ga('send', 'pageview');
 
 </script>
 <?php
@@ -150,7 +160,7 @@ class Theme_Blvd_Simple_Analytics {
                     break;
 
                 case 'placement' :
-                    $choices = array( 'head', 'foot' );
+                    $choices = array( 'head', 'body', 'foot' );
                     if ( in_array( $value, $choices ) ) {
                         $output[$key] = $value;
                     } else {
@@ -181,9 +191,14 @@ class Theme_Blvd_Simple_Analytics {
             $code = $settings['google_id'];
         }
 
-        $placement = 'head';
+        $placement = 'body';
+
         if ( isset( $settings['placement'] ) ) {
             $placement = $settings['placement'];
+        }
+
+        if ( $placement == 'body' && ! defined('TB_FRAMEWORK_VERSION') ) {
+            $placement = 'head';
         }
 
         ?>
@@ -218,6 +233,11 @@ class Theme_Blvd_Simple_Analytics {
                                     <label>
                                         <input type="radio" name="themeblvd_analytics[placement]" value="head" <?php checked( 'head', $placement ); ?>> <span><?php _e('Include within <code>&lt;head&gt;</code> tag.', 'simple-analytics'); ?></span>
                                     </label><br>
+                                    <?php if ( defined('TB_FRAMEWORK_VERSION') ) : // Only Theme Blvd theme will have an action hook for this ?>
+                                        <label>
+                                            <input type="radio" name="themeblvd_analytics[placement]" value="body" <?php checked( 'body', $placement ); ?>> <span><?php _e('Immediately after the opening <code>&lt;body&gt;</code> tag.', 'simple-analytics'); ?></span>
+                                        </label><br>
+                                    <?php endif; ?>
                                     <label>
                                         <input type="radio" name="themeblvd_analytics[placement]" value="foot" <?php checked( 'foot', $placement ); ?>> <span><?php _e('Include before closing <code>&lt;/body&gt;</code> tag.', 'simple-analytics'); ?></span>
                                     </label><br>
@@ -253,6 +273,6 @@ add_action( 'plugins_loaded', 'themeblvd_simple_analytics_init' );
  * @since 1.0.1
  */
 function themeblvd_simple_analytics_textdomain() {
-  load_plugin_textdomain('simple-analytics');
+    load_plugin_textdomain('simple-analytics');
 }
 add_action( 'init', 'themeblvd_simple_analytics_textdomain' );
